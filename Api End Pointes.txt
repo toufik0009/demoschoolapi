@@ -1,0 +1,36 @@
+Base_API: http://localhost:5000
+
+POST /api/superadmin/register	  Create a SuperAdmin
+POST /api/superadmin/login	      login the SuperAdmin
+POST /api/superadmin/verify	      verify with otp the SuperAdmin
+
+POST  /api/admins/login                 Public Admin Login (returns token)
+POST  /api/admins/create                SuperAdmin | Create new Admin
+GET /api/admins/getAllAdmin             Admin | Get all Admins
+GET  /api/admins/getAdmin/:id           Admin | Get Admin by ID
+PUT  /api/admins/updateAdmin/:id        Admin | Update Admin info
+DELETE  /api/admins/deleteAdmin/:id     SuperAdmin | Delete Admin
+
+POST /api/students/insertStudent	    Insert a new student
+GET	/api/students/getAllStudents	    Get all students
+GET	/api/students/getStudent/:id	    Get a specific student
+PUT	/api/students/updateStudent/:id	    Update a specific student
+DELETE /api/students/deleteStudent/:id	Delete a specific student
+
+POST /api/teachers/insertTeacher	    Insert a new teacher
+GET	/api/teachers/getAllTeachers	    Get all teacher
+GET	/api/teachers/getTeacher/:id	    Get a specific teacher
+PUT	/api/teachers/updateTeacher/:id	    Update a specific teacher
+DELETE /api/teachers/deleteTeacher/:id	Delete a specific teacher
+
+POST /api/classes/insertClass	        Insert a new class
+GET	/api/classes/getAllClasses	        Get all classes
+GET	/api/classes/getClass/:id           Get a specific class
+PUT	/api/classes/updateClass/:id        Update a specific classes
+DELETE /api/classes//deleteClass/:id	Delete a specific classes
+
+POST /api/schools/create	            Insert a new school
+GET	/api/schools/getAllSchool	        Get all school
+GET	/api/schools/getSchool/:id          Get a specific school
+PUT	/api/schools/updateSchool/:id       Update a specific school
+DELETE /api/schools/deleteSchool/:id	Delete a specific school
