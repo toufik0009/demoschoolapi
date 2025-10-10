@@ -1,4 +1,5 @@
 const Teacher = require("../models/Teachers");
+const School = require("../models/School");
 const Class = require("../models/Classes");
 const jwt = require("jsonwebtoken");
 
@@ -24,6 +25,7 @@ exports.createTeacher = async (req, res) => {
       bloodGroup,
       dateOfBirth,
       residentialAddress,
+      role,
       city,
       state,
       zip,
@@ -63,7 +65,7 @@ exports.createTeacher = async (req, res) => {
       teacherCity: city,
       teacherState: state,
       teacherZip: zip,
-
+      role:role,
       schoolId: req.user?.schoolId,
       createdBy: req.user?.userId || req.user?.id,
     };
@@ -79,7 +81,7 @@ exports.createTeacher = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Teacher created successfully",
+      message: "School Staff created successfully",
       teacher,
     });
 
@@ -93,7 +95,6 @@ exports.createTeacher = async (req, res) => {
   }
 };
 
-
 // Teacher Login
 exports.loginTeacher = async (req, res) => {
   try {
@@ -105,13 +106,26 @@ exports.loginTeacher = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    // ✅ Simple string comparison instead of bcrypt
+    // Simple password check (replace with bcrypt if needed)
     if (password !== teacher.teacherPassword) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    // 🔹 Check school status
+    const school = await School.findById(teacher.schoolId);
+    if (!school) {
+      return res.status(404).json({ message: "Assigned school not found" });
+    }
+
+    if (school.status.toLowerCase() !== "paid") {
+      return res.status(403).json({
+        message: "Cannot login. Your assigned school's payment status is Unpaid.",
+      });
+    }
+
+    // Generate JWT token
     const token = jwt.sign(
-      { userId: teacher._id, role: teacher.role },
+      { userId: teacher._id, role: teacher.role, schoolId: teacher.schoolId },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
@@ -128,7 +142,8 @@ exports.loginTeacher = async (req, res) => {
         role: teacher.role,
         classes: teacher.teacherClasses,
         sections: teacher.teacherSections,
-        subjects: teacher.teacherSubjects
+        subjects: teacher.teacherSubjects,
+        schoolId: teacher.schoolId
       },
     });
   } catch (error) {
@@ -165,19 +180,48 @@ exports.getTeacherById = async (req, res) => {
   }
 };
 
-// Update a Teacher by ID
+// Controller - Update Teacher
 exports.updateTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedTeacher = await Teacher.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
+
+    let updateData = { ...req.body };
+    console.log("Data",updateData)
+
+    // If a new image file is uploaded, save its path
+    if (req.file) {
+      updateData.teacherImage = req.file.path; // or req.file.filename depending on your multer setup
+    }
+
+    // Optional: prevent undefined/null fields from overwriting existing data
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined || updateData[key] === null) {
+        delete updateData[key];
+      }
+    });
+
+    const updatedTeacher = await Teacher.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
 
     if (!updatedTeacher) {
       return res.status(404).json({ success: false, message: "Teacher not found" });
     }
 
-    res.status(200).json({ success: true, message: "Teacher updated successfully", updatedTeacher });
+    res.status(200).json({
+      success: true,
+      message: "Teacher updated successfully",
+      updatedTeacher
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error updating teacher", error: error.message });
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating teacher",
+      error: error.message
+    });
   }
 };
 

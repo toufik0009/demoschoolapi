@@ -1,4 +1,5 @@
 const Student = require("../models/Students");
+const School = require("../models/School");
 const Class = require("../models/Classes");
 const jwt = require("jsonwebtoken");
 
@@ -14,12 +15,25 @@ exports.studentLogin = async (req, res) => {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    // 2. Plaintext password check (DOB-based password from your model)
+    // 2. Plaintext password check (DOB-based password)
     if (password !== student.studentPassword) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    // 3. Create JWT token
+    // 3. Check school status
+    const school = await School.findById(student.schoolId);
+    if (!school) {
+      return res.status(404).json({ success: false, message: "Assigned school not found" });
+    }
+
+    if (school.status.toLowerCase() !== "paid") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot login. Your school's payment status is Unpaid.",
+      });
+    }
+
+    // 4. Create JWT token
     const token = jwt.sign(
       {
         userId: student._id,
@@ -31,7 +45,7 @@ exports.studentLogin = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // 4. Send response
+    // 5. Send response
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -42,6 +56,7 @@ exports.studentLogin = async (req, res) => {
         name: student.studentName,
         email: student.studentEmail,
         role: student.role,
+        schoolId: student.schoolId
       },
     });
   } catch (error) {
@@ -52,6 +67,7 @@ exports.studentLogin = async (req, res) => {
     });
   }
 };
+
 
 // Create a new Student
 exports.createStudent = async (req, res) => {

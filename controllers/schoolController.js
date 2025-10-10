@@ -42,7 +42,6 @@ exports.createSchool = async (req, res) => {
   }
 };
 
-
 // Get All Schools
 exports.getAllSchools = async (req, res) => {
   try {
@@ -111,3 +110,28 @@ exports.deleteSchool = async (req, res) => {
       res.status(500).json({ error: 'Server error' });
     }
   };
+
+// Toggle School Payment Status
+exports.toggleSchoolStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const school = await School.findById(id);
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    // Toggle status between paid/unpaid
+    school.status = school.status === "Paid" ? "Unpaid" : "Paid";
+    await school.save();
+
+    res.status(200).json({
+      message: `School status updated to ${school.status}`,
+      school,
+    });
+  } catch (error) {
+    console.error("Error toggling school status:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+

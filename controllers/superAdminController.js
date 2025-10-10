@@ -3,6 +3,7 @@ const SuperAdmin = require('../models/SuperAdmin');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sendOTP } = require("../utils/sendEmail");
+// const superAdminSendOTP = require('../utils/superAdminSendOTP');
 
 // Register Super Admin
 exports.registerSuperAdmin = async (req, res) => {
@@ -34,7 +35,6 @@ exports.registerSuperAdmin = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // Login Super Admin
 exports.loginSuperAdmin = async (req, res) => {
   try {
@@ -45,32 +45,37 @@ exports.loginSuperAdmin = async (req, res) => {
       return res.status(404).json({ message: "Super Admin not found" });
     }
 
-    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // Save OTP to DB
+    // Save to DB (you already did this)
     superAdmin.otp = otp;
     superAdmin.otpExpires = otpExpires;
     await superAdmin.save();
 
-    // Send OTP via Email
-    await sendOTP(adminEmail, otp);
-
-    res.status(200).json({ message: "OTP sent to email", email: adminEmail });
+    // send email
+    try {
+      await sendOTP(adminEmail, otp);
+      return res.status(200).json({ message: "OTP sent to email", email: adminEmail });
+    } catch (sendErr) {
+      console.error('Error sending OTP email:', sendErr);
+      // Optional: clear OTP if send fails
+      superAdmin.otp = null;
+      superAdmin.otpExpires = null;
+      await superAdmin.save();
+      return res.status(500).json({ message: "Failed to send OTP email" });
+    }
   } catch (error) {
     console.error("OTP send error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-
-
 // controllers/authController.js
 exports.verifyOTP = async (req, res) => {
   try {
     const { adminEmail, otp } = req.body;
-    console.log("Verifying OTP...",req.body); // Debugging line
+    console.log("Verifying OTP...",req.body);
 
     const superAdmin = await SuperAdmin.findOne({ adminEmail: adminEmail });
     if (!superAdmin) return res.status(404).json({ message: "User not found" });
@@ -106,3 +111,5 @@ exports.verifyOTP = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+

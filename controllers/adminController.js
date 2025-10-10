@@ -1,4 +1,6 @@
 const Admin = require("../models/Admins");
+const School = require("../models/School");
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
@@ -33,8 +35,8 @@ exports.createAdmin = async (req, res) => {
   }
 };
 
-
 // Admin Login
+
 exports.loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -49,8 +51,18 @@ exports.loginAdmin = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    // 🔹 Check if all assigned schools are Paid
+    const schools = await School.find({ _id: { $in: admin.schoolIds } });
+    const hasUnpaidSchool = schools.some((s) => s.status.toLowerCase() !== "paid");
+
+    if (hasUnpaidSchool) {
+      return res.status(403).json({
+        message: "Cannot login. One or more of your assigned schools have Unpaid status.",
+      });
+    }
+
     const token = jwt.sign(
-      { userId: admin._id, role: admin.role, schoolId: admin.schoolIds },
+      { userId: admin._id, role: admin.role, schoolIds: admin.schoolIds },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );

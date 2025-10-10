@@ -7,7 +7,7 @@ const teacherSchema = new mongoose.Schema({
   teacherName: { type: String, required: false },
   teacherEmail: { type: String, required: true, unique: true },
   teacherDOJ: { type: String },
-  teacherDOB: { type: String }, // format: YYYY-MM-DD
+  teacherDOB: { type: String },
   teacherPhone: { type: String, required: true, unique: true },
   teacherGender: { type: String },
 

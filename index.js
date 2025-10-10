@@ -13,7 +13,10 @@ const teacherRoutes = require("./routes/teacherRoutes");
 const classRoutes = require("./routes/classRoutes");
 const markSheetRoutes = require("./routes/markSheetRoutes");
 const studentPaymentRoutes = require("./routes/studentPaymentRoutes");
+const studentAttendanceRoutes = require("./routes/studentAttendanceRoutes");
+const teacherAttendanceRoutes = require("./routes/teacherAttendanceRoutes");
 const leaveRouter = require('./routes/leaveRoutes')
+const marksGradingRoutes = require('./routes/marksGradingRoutes')
 
 
 dotenv.config();
@@ -39,7 +42,10 @@ app.use("/api/teachers", teacherRoutes);
 app.use("/api/classes", classRoutes);
 app.use("/api/marksheet", markSheetRoutes);
 app.use("/api/student-payment", studentPaymentRoutes);
+app.use("/api/student-attendance", studentAttendanceRoutes);
+app.use("/api/teacher-attendance", teacherAttendanceRoutes);
 app.use("/api/leave", leaveRouter);
+app.use("/api/marks-grading", marksGradingRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

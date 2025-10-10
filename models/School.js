@@ -16,7 +16,7 @@ const SchoolSchema = new mongoose.Schema({
   schoolLogo: { type: String }, 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'superAdmin' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'superAdmin' },
-  status: { type: String, default: 'active' }
+  status: { type: String, default: 'Paid' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('School', SchoolSchema);

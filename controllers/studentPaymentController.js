@@ -1,168 +1,110 @@
 const Payment = require('../models/StudentPayment');
 const Student = require('../models/Students');
-const mongoose = require('mongoose');
-const { addMonths, billingMonthsSince } = require('../utils/dateHelpers');
-
+const mongoose = require("mongoose");
 
 exports.createPayment = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const { studentId, amountPaid, payDate, dueAmount, note } = req.body;
+    const { studentId, amountPaid, month, includeOutstanding = false, paymentMethod = "cash", note } = req.body;
 
-    if (!studentId || !amountPaid || !payDate) {
-      await session.abortTransaction();
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+    if (!studentId || typeof amountPaid !== "number" || !month) {
+      return res.status(400).json({ message: "studentId, amountPaid (number) and month are required" });
     }
 
-    // 🔹 Find student
-    const student = await Student.findById(studentId).session(session);
-    if (!student) {
-      await session.abortTransaction();
-      return res.status(404).json({ success: false, message: "Student not found" });
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const monthlyFee = student.monthlyFee || 0;
+    const outstandingDue = student.outstandingDue || 0;
+    let credit = student.creditBalance || 0;
+
+    let remaining = amountPaid;
+
+    // Step 1: Use credit first for this month
+    let creditAppliedToMonth = 0;
+    if (credit > 0) {
+      creditAppliedToMonth = Math.min(credit, monthlyFee);
+      credit -= creditAppliedToMonth;
     }
 
-    // 🔹 Get total paid so far
-    const pastPayments = await Payment.find({ studentId }).session(session);
-    const totalPaidBefore = pastPayments.reduce((sum, p) => sum + p.amountPaid, 0);
-    const totalPaid = totalPaidBefore + Number(amountPaid);
+    // Step 2: Apply to outstanding due if included
+    let appliedToDue = 0;
+    if (includeOutstanding && outstandingDue > 0) {
+      appliedToDue = Math.min(remaining, outstandingDue);
+      remaining -= appliedToDue;
+    }
 
-    // 🔹 Dates
-    const lastPaymentDate = new Date(payDate);
-    const nextPaymentDate = addMonths(lastPaymentDate, 1);
+    // Step 3: Apply remaining to current month's fee
+    let appliedToMonth = Math.min(remaining, monthlyFee - creditAppliedToMonth);
+    remaining -= appliedToMonth;
 
-    // 🔹 Save new payment
-    const paymentDoc = new Payment({
-      studentId,
-      payDate: lastPaymentDate,
-      amountPaid: Number(amountPaid),
-      dueAmount: dueAmount ?? 0, // take directly from frontend
+    // Step 4: Any leftover goes to credit
+    credit += remaining;
+
+    // Step 5: Calculate new outstanding (month's due minus paid)
+    const monthDue = monthlyFee - (appliedToMonth + creditAppliedToMonth);
+    const newOutstanding = Math.max(0, outstandingDue - appliedToDue) + monthDue;
+
+    // Step 6: Create payment record
+    const payment = new Payment({
+      student: student._id,
+      month,
+      amountPaid,
+      appliedToDue,
+      appliedToMonth: appliedToMonth + creditAppliedToMonth,
+      dueBefore: outstandingDue,
+      dueAfter: newOutstanding,
+      paymentMethod,
       note,
     });
-    await paymentDoc.save({ session });
 
-    // 🔹 Update student summary
-    student.totalPaid = totalPaid;
-    student.lastPaymentDate = lastPaymentDate;
-    student.nextPaymentDate = nextPaymentDate;
-    student.outstanding = dueAmount ?? 0; // also trust frontend
-    await student.save({ session });
+    await payment.save();
 
-    await session.commitTransaction();
-    session.endSession();
+    // Step 7: Update student
+    student.outstandingDue = newOutstanding;
+    student.creditBalance = credit;
+    await student.save();
 
-    return res.status(201).json({
-      success: true,
-      message: "Payment recorded successfully",
-      payment: paymentDoc,
-      summary: {
-        totalPaid,
-        outstanding: dueAmount ?? 0,
-        lastPaymentDate,
-        nextPaymentDate,
-      },
-    });
+    return res.json({ message: "Payment recorded", payment, student });
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("createPayment error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error(err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// Get all payments (paginated optional)
 exports.getAllPayments = async (req, res) => {
   try {
-    // simple pagination support
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
-
     const payments = await Payment.find()
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    const total = await Payment.countDocuments();
-
-    return res.json({ success: true, payments, total, page, limit });
+      .populate("student", "studentName studentClass studentRoll studentPhone")
+      .sort({ paymentDate: -1 }); // newest first
+    return res.json({ payments });
   } catch (err) {
-    console.error('getAllPayments error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error(err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// Get one payment by id
+// -------------------------
+// Get Payment by ID
+
 exports.getPaymentById = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log("Received ID:", id);
+
+    if (!id) return res.status(400).json({ message: "Payment ID is required" });
+
+    // Check if valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid id' });
+      return res.status(400).json({ message: "Invalid Payment ID" });
     }
 
-    const payment = await Payment.findById(id).lean();
-    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+     const payment = await Payment.find({ student: id }).sort({ paymentDate: -1 });
 
-    return res.json({ success: true, payment });
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+    return res.json({ payment });
   } catch (err) {
-    console.error('getPaymentById error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error(err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
-// Get payments by studentId
-exports.getPaymentsByStudent = async (req, res) => {
-  try {
-    const { studentId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(studentId)) {
-      return res.status(400).json({ success: false, message: 'Invalid studentId' });
-    }
-
-    const payments = await Payment.find({ studentId }).sort({ date: -1 }).lean();
-    return res.json({ success: true, payments });
-  } catch (err) {
-    console.error('getPaymentsByStudent error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-// Update a payment
-exports.updatePayment = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid id' });
-    }
-
-    const updated = await Payment.findByIdAndUpdate(id, updates, { new: true }).lean();
-    if (!updated) return res.status(404).json({ success: false, message: 'Payment not found' });
-
-    return res.json({ success: true, payment: updated });
-  } catch (err) {
-    console.error('updatePayment error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-
-// Delete a payment
-exports.deletePayment = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid id' });
-    }
-
-    const deleted = await Payment.findByIdAndDelete(id).lean();
-    if (!deleted) return res.status(404).json({ success: false, message: 'Payment not found' });
-
-    return res.json({ success: true, message: 'Payment deleted' });
-  } catch (err) {
-    console.error('deletePayment error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
-

@@ -1,7 +1,7 @@
 // routes/schoolRoutes.js
 const express = require('express');
 const router = express.Router();
-const { createSchool, getAllSchools, getSchoolById, deleteSchool, updateSchool } = require('../controllers/schoolController');
+const { createSchool, getAllSchools, getSchoolById, deleteSchool, updateSchool, toggleSchoolStatus } = require('../controllers/schoolController');
 const { verifyToken, verifySuperAdmin } = require('../middleware/schoolMiddleware');
 const upload = require('../middleware/upload');
 
@@ -19,5 +19,7 @@ router.put('/updateSchool/:id', verifyToken, verifySuperAdmin, updateSchool);
 
 // Delete School by ID (SuperAdmin Only)
 router.delete('/deleteSchool/:id', verifyToken, verifySuperAdmin, deleteSchool);
+
+router.patch("/toggle-status/:id", toggleSchoolStatus);
 
 module.exports = router;

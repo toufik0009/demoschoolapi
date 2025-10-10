@@ -9,21 +9,19 @@ const studentSchema = new mongoose.Schema({
   studentSection: { type: String, required: true },
   studentBlood: { type: String, required: false },
   studentEmail: { type: String, required: true, unique: true },
-  studentDOB: { type: String }, // format: yyyy-mm-dd
+  studentDOB: { type: String, required: true },
   studentGender: { type: String, required: true },
   studentAddress: { type: String, required: true },
   studentCity: { type: String, required: true },
   studentState: { type: String, required: true },
   studentZip: { type: String, required: true },
   studentPhone: { type: String, required: true, unique: true },
-  monthlyFee: { type: Number, required: true },
+  studentAadhaar: { type: String, required: false, unique: true },
 
-  // payment summary fields
-  totalPaid: { type: Number, default: 0 },
-  totalFee: { type: Number, default: 0 },
-  outstanding: { type: Number, default: 0 },
-  lastPaymentDate: { type: Date },
-  nextPaymentDate: { type: Date },
+  monthlyFee: { type: Number, required: true },
+  outstandingDue: { type: Number, default: 0 },
+  creditBalance: { type: Number, default: 0 },
+
 
   studentParentName: { type: String, required: true },
   studentRelationship: { type: String, required: true },
