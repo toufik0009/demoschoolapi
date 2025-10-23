@@ -189,8 +189,11 @@ exports.updateTeacher = async (req, res) => {
     console.log("Data",updateData)
 
     // If a new image file is uploaded, save its path
+    // if (req.file) {
+    //   updateData.teacherImage = req.file.path;
+    // }
     if (req.file) {
-      updateData.teacherImage = req.file.path; // or req.file.filename depending on your multer setup
+      updateData.teacherImage = `/uploads/${req.file.filename}`;
     }
 
     // Optional: prevent undefined/null fields from overwriting existing data

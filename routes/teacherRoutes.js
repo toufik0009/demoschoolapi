@@ -19,7 +19,7 @@ router.get("/getAllTeachers", teacherMiddleware.verifyToken, teacherController.g
 router.get("/getTeacher/:id", teacherMiddleware.verifyToken, teacherController.getTeacherById);
 
 // Update a teacher by ID
-router.put("/updateTeacher/:id", teacherMiddleware.verifyToken, teacherMiddleware.verifyTeacherOrAdmin, teacherController.updateTeacher);
+router.put("/updateTeacher/:id", teacherMiddleware.verifyToken, upload.single("teacherImage"), teacherMiddleware.verifyTeacherOrAdmin, teacherController.updateTeacher);
 
 // Delete a teacher by ID
 router.delete("/deleteTeacher/:id", teacherMiddleware.verifyToken, teacherMiddleware.verifyTeacherOrAdmin, teacherController.deleteTeacher);

@@ -11,8 +11,8 @@ router.post("/create", verifyToken, verifySuperAdmin, upload.single("schoolLogo"
 // Get All Schools (SuperAdmin Only)
 router.get('/getAllSchool', verifyToken, verifySuperAdmin, getAllSchools);
 
-// Get Specific School by ID (SuperAdmin Only)
-router.get('/getSchool/:id', verifyToken, verifySuperAdmin, getSchoolById);
+// Get Specific School by ID (anyone)
+router.get('/getSchool/:id', verifyToken, getSchoolById);
 
 // Update School by ID (SuperAdmin Only)
 router.put('/updateSchool/:id', verifyToken, verifySuperAdmin, updateSchool);

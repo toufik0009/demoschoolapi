@@ -153,7 +153,32 @@ exports.getStudentById = async (req, res) => {
 exports.updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedStudent = await Student.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
+    
+    const updateData = { ...req.body };
+    
+    const arrayFields = ['markSheet', 'attendance', 'subjects', 'activities'];
+    
+    arrayFields.forEach(field => {
+      if (updateData[field] && typeof updateData[field] === 'string') {
+        try {
+          updateData[field] = JSON.parse(updateData[field]);
+        } catch (parseError) {
+          console.warn(`Failed to parse ${field} field:`, parseError);
+          delete updateData[field];
+        }
+      }
+    });
+
+    // Handle file upload
+    if (req.file) {
+      updateData.studentImage = `/uploads/${req.file.filename}`;
+    }
+
+    const updatedStudent = await Student.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
 
     if (!updatedStudent) {
       return res.status(404).json({ success: false, message: "Student not found" });
@@ -161,6 +186,7 @@ exports.updateStudent = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Student updated successfully", updatedStudent });
   } catch (error) {
+    console.error("Error updating student:", error);
     res.status(500).json({ success: false, message: "Error updating student", error: error.message });
   }
 };

@@ -18,7 +18,10 @@ router.get("/getAllStudents", studentMiddleware.verifyToken, studentController.g
 router.get("/getStudent/:id", studentMiddleware.verifyToken, studentController.getStudentById);
 
 // Update a student by ID
-router.put("/updateStudent/:id", studentMiddleware.verifyToken, studentMiddleware.verifyStudentOrAdmin, studentController.updateStudent);
+router.put("/updateStudent/:id", studentMiddleware.verifyToken,
+    upload.single("studentImage"),
+    studentMiddleware.verifyStudentOrAdmin,
+    studentController.updateStudent);
 
 // Delete a student by ID
 router.delete("/deleteStudent/:id", studentMiddleware.verifyToken, studentMiddleware.verifyStudentOrAdmin, studentController.deleteStudent);
