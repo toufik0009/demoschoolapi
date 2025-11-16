@@ -65,8 +65,8 @@ exports.createTeacher = async (req, res) => {
       teacherCity: city,
       teacherState: state,
       teacherZip: zip,
-      role:role,
-      schoolId: req.user?.schoolId,
+      role: role,
+      schoolId: req.user.schoolIds[0],
       createdBy: req.user?.userId || req.user?.id,
     };
 
@@ -156,8 +156,9 @@ exports.loginTeacher = async (req, res) => {
 // Get all Teachers
 exports.getAllTeachers = async (req, res) => {
   try {
-    const teachers = await Teacher.find();
-    res.status(200).json({ success: true, teachers });
+    const schoolId = req.schoolId;
+    const teachers = await Teacher.find({ schoolId });
+    res.status(200).json({ success: true, count: teachers.length, teachers });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error fetching teachers", error: error.message });
   }
@@ -186,7 +187,7 @@ exports.updateTeacher = async (req, res) => {
     const { id } = req.params;
 
     let updateData = { ...req.body };
-    console.log("Data",updateData)
+    console.log("Data", updateData)
 
     // If a new image file is uploaded, save its path
     // if (req.file) {

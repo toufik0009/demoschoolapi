@@ -5,20 +5,25 @@ const Teacher = require("../models/Teachers");
 exports.punchIn = async (req, res) => {
   try {
     const { teacherId } = req.body;
+    const schoolId = req.schoolId;
 
     if (!teacherId) {
       return res.status(400).json({ message: "Teacher ID is required" });
     }
 
-    const teacher = await Teacher.findById(teacherId);
+    if (!schoolId) {
+      return res.status(401).json({ message: "Unauthorized. Missing schoolId." });
+    }
+
+    const teacher = await Teacher.findOne({ _id: teacherId, schoolId });
     if (!teacher) {
-      return res.status(404).json({ message: "Teacher not found" });
+      return res.status(404).json({ message: "Teacher not found in this school" });
     }
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Check if already punched in today
     const existing = await TeacherAttendance.findOne({
+      schoolId,
       teacher: teacherId,
       date: today,
     });
@@ -28,6 +33,7 @@ exports.punchIn = async (req, res) => {
     }
 
     const attendance = new TeacherAttendance({
+      schoolId,
       teacher: teacherId,
       date: today,
       punchIn: new Date(),
@@ -46,21 +52,24 @@ exports.punchIn = async (req, res) => {
 exports.punchOut = async (req, res) => {
   try {
     const { teacherId } = req.body;
+    const schoolId = req.schoolId;
 
     if (!teacherId) {
       return res.status(400).json({ message: "Teacher ID is required" });
     }
 
     const today = new Date().toISOString().split("T")[0];
+
     const attendance = await TeacherAttendance.findOne({
+      schoolId,
       teacher: teacherId,
       date: today,
     });
 
     if (!attendance) {
-      return res
-        .status(404)
-        .json({ message: "No punch-in record found for today" });
+      return res.status(404).json({
+        message: "No punch-in record found for today",
+      });
     }
 
     if (attendance.punchOut) {
@@ -81,8 +90,9 @@ exports.punchOut = async (req, res) => {
 exports.getTeacherAttendance = async (req, res) => {
   try {
     const { id } = req.params;
+    const schoolId = req.schoolId;
 
-    const records = await TeacherAttendance.find({ teacher: id })
+    const records = await TeacherAttendance.find({ teacher: id, schoolId })
       .populate("teacher", "teacherName teacherRole teacherId teacherEmail")
       .sort({ date: -1 });
 
@@ -93,10 +103,12 @@ exports.getTeacherAttendance = async (req, res) => {
   }
 };
 
-// ✅ Get all attendance records (for admin)
+// ✅ Get all attendance (Admin)
 exports.getAllAttendance = async (req, res) => {
   try {
-    const records = await TeacherAttendance.find()
+    const schoolId = req.schoolId;
+
+    const records = await TeacherAttendance.find({ schoolId })
       .populate("teacher", "teacherName teacherRole teacherId teacherEmail")
       .sort({ date: -1 });
 

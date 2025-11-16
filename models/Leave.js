@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const leaveSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School" },
   userId: { type: mongoose.Schema.Types.ObjectId, required: true },
   userType: { type: String, enum: ['student', 'teacher'], required: true },
   fromDate: { type: Date, required: true },

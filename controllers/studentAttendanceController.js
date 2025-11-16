@@ -1,24 +1,27 @@
 const StudentAttendance = require("../models/StudentAttendance");
 const Student = require("../models/Students");
 
-// ✅ Mark Punch-In
+// ✅ PUNCH-IN
 exports.punchIn = async (req, res) => {
   try {
     const { studentId } = req.body;
+    const schoolId = req.schoolId;
 
     if (!studentId) {
       return res.status(400).json({ message: "Student ID is required" });
     }
 
-    const student = await Student.findById(studentId);
+    // Validate student belongs to this school
+    const student = await Student.findOne({ _id: studentId, schoolId });
     if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+      return res.status(404).json({ message: "Student not found in this school" });
     }
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Check if already punched in today
+    // Check if already punched-in today
     const existing = await StudentAttendance.findOne({
+      schoolId,
       student: studentId,
       date: today,
     });
@@ -28,6 +31,7 @@ exports.punchIn = async (req, res) => {
     }
 
     const attendance = new StudentAttendance({
+      schoolId,
       student: studentId,
       date: today,
       punchIn: new Date(),
@@ -35,6 +39,7 @@ exports.punchIn = async (req, res) => {
     });
 
     await attendance.save();
+
     res.json({ message: "Punch-in recorded successfully", attendance });
   } catch (err) {
     console.error("Punch-in error:", err);
@@ -42,25 +47,28 @@ exports.punchIn = async (req, res) => {
   }
 };
 
-// ✅ Mark Punch-Out
+// ✅ PUNCH-OUT
 exports.punchOut = async (req, res) => {
   try {
     const { studentId } = req.body;
+    const schoolId = req.schoolId;
 
     if (!studentId) {
       return res.status(400).json({ message: "Student ID is required" });
     }
 
     const today = new Date().toISOString().split("T")[0];
+
     const attendance = await StudentAttendance.findOne({
+      schoolId,
       student: studentId,
       date: today,
     });
 
     if (!attendance) {
-      return res
-        .status(404)
-        .json({ message: "No punch-in record found for today" });
+      return res.status(404).json({
+        message: "No punch-in record found for today",
+      });
     }
 
     if (attendance.punchOut) {
@@ -77,12 +85,16 @@ exports.punchOut = async (req, res) => {
   }
 };
 
-// ✅ Get attendance for a specific student
+// ✅ GET STUDENT ATTENDANCE (with school filter)
 exports.getStudentAttendance = async (req, res) => {
   try {
     const { id } = req.params;
+    const schoolId = req.schoolId;
 
-    const records = await StudentAttendance.find({ student: id })
+    const records = await StudentAttendance.find({
+      student: id,
+      schoolId,
+    })
       .populate("student", "studentName studentClass studentRoll")
       .sort({ date: -1 });
 
@@ -93,10 +105,12 @@ exports.getStudentAttendance = async (req, res) => {
   }
 };
 
-// ✅ Get all attendance records (for admin)
+// ✅ GET ALL ATTENDANCE (school-wise)
 exports.getAllAttendance = async (req, res) => {
   try {
-    const records = await StudentAttendance.find()
+    const schoolId = req.schoolId;
+
+    const records = await StudentAttendance.find({ schoolId })
       .populate("student", "studentName studentClass studentRoll")
       .sort({ date: -1 });
 

@@ -7,10 +7,11 @@ const {
 } = require ('../controllers/marksGradingController');
 
 const router = express.Router();
+const { adminAuth } = require("../middleware/adminMiddleware");
 
-router.post("/add", createOrUpdateGrades);
-router.get("/all", getAllGrades);
-router.get("/:className", getGradesByClass);
-router.delete("/:className", deleteGradesByClass);
+router.post("/add",adminAuth, createOrUpdateGrades);
+router.get("/all",adminAuth, getAllGrades);
+router.get("/:className",adminAuth, getGradesByClass);
+router.delete("/:className",adminAuth, deleteGradesByClass);
 
 module.exports = router;

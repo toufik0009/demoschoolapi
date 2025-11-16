@@ -7,20 +7,16 @@ const jwt = require("jsonwebtoken");
 exports.studentLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("StudentLogin Request:", req.body);
 
-    // 1. Check if student exists
     const student = await Student.findOne({ studentEmail: email });
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    // 2. Plaintext password check (DOB-based password)
     if (password !== student.studentPassword) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    // 3. Check school status
     const school = await School.findById(student.schoolId);
     if (!school) {
       return res.status(404).json({ success: false, message: "Assigned school not found" });
@@ -29,23 +25,22 @@ exports.studentLogin = async (req, res) => {
     if (school.status.toLowerCase() !== "paid") {
       return res.status(403).json({
         success: false,
-        message: "Cannot login. Your school's payment status is Unpaid.",
+        message: "Cannot login. Your school is Unpaid.",
       });
     }
 
-    // 4. Create JWT token
     const token = jwt.sign(
       {
         userId: student._id,
-        role: student.role,
+        role: "student",
         email: student.studentEmail,
         name: student.studentName,
+        schoolIds: [student.schoolId],   // Important!
       },
-      process.env.JWT_SECRET || "your_jwt_secret",
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // 5. Send response
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -68,14 +63,13 @@ exports.studentLogin = async (req, res) => {
   }
 };
 
-
-// Create a new Student
+// Create
 exports.createStudent = async (req, res) => {
   try {
     const studentData = {
       ...req.body,
-      createdBy: req.user.userId || req.user.id,
-      schoolId: req.user.schoolId,
+      createdBy: req.user.userId,
+      schoolId: req.schoolId,
     };
 
     if (req.file) {
@@ -85,21 +79,22 @@ exports.createStudent = async (req, res) => {
     const student = new Student(studentData);
     await student.save();
 
+    // update class count
     if (student.studentClass && student.studentSection) {
-      // Decide which field to update based on gender
-      let updateField;
-      if (student.studentGender === "Male") updateField = "totalBoys";
-      else if (student.studentGender === "Female") updateField = "totalGirls";
-      else updateField = "totalOthers";
-
-      // Find class document by className + section + schoolId
       const classDoc = await Class.findOne({
         className: student.studentClass,
         sections: student.studentSection,
-        schoolId: req.user.schoolId,
+        schoolId: req.schoolId,
       });
 
       if (classDoc) {
+        const updateField =
+          student.studentGender === "Male"
+            ? "totalBoys"
+            : student.studentGender === "Female"
+            ? "totalGirls"
+            : "totalOthers";
+
         await Class.findByIdAndUpdate(
           classDoc._id,
           { $push: { [updateField]: student._id } },
@@ -111,98 +106,193 @@ exports.createStudent = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Student created successfully",
-      student
+      student,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Error creating student",
-      error: error.message
+      error: error.message,
     });
   }
 };
-
-
-// Get all Students
+// Get All Students
 exports.getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find();
-    res.status(200).json({ success: true, students });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching students", error: error.message });
+    const students = await Student.find({ schoolId: req.schoolId });
+
+    res.status(200).json({
+      success: true,
+      count: students.length,
+      students,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// Get a single Student by ID
+// Get Student By ID
 exports.getStudentById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const student = await Student.findById(id);
+    const student = await Student.findOne({
+      _id: req.params.id,
+      schoolId: req.schoolId,
+    });
 
     if (!student) {
-      return res.status(404).json({ success: false, message: "Student not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Student not found in this school",
+      });
     }
 
     res.status(200).json({ success: true, student });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching student", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching student",
+      error: error.message,
+    });
   }
 };
 
-// Update a Student by ID
+// Update Student with Class Sync
 exports.updateStudent = async (req, res) => {
   try {
-    const { id } = req.params;
-    
     const updateData = { ...req.body };
-    
-    const arrayFields = ['markSheet', 'attendance', 'subjects', 'activities'];
-    
-    arrayFields.forEach(field => {
-      if (updateData[field] && typeof updateData[field] === 'string') {
-        try {
-          updateData[field] = JSON.parse(updateData[field]);
-        } catch (parseError) {
-          console.warn(`Failed to parse ${field} field:`, parseError);
-          delete updateData[field];
-        }
-      }
-    });
 
-    // Handle file upload
+    if (updateData.markSheet) {
+      try { updateData.markSheet = JSON.parse(updateData.markSheet); }
+      catch { updateData.markSheet = []; }
+    }
+
     if (req.file) {
       updateData.studentImage = `/uploads/${req.file.filename}`;
     }
 
-    const updatedStudent = await Student.findByIdAndUpdate(
-      id, 
-      updateData, 
-      { new: true, runValidators: true }
-    );
+    const oldStudent = await Student.findOne({
+      _id: req.params.id,
+      schoolId: req.schoolId,
+    });
 
-    if (!updatedStudent) {
+    if (!oldStudent) {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    res.status(200).json({ success: true, message: "Student updated successfully", updatedStudent });
+    // --- Update Student DB ---
+    const student = await Student.findOneAndUpdate(
+      { _id: req.params.id, schoolId: req.schoolId },
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    const oldClass = oldStudent.studentClass;
+    const oldSection = oldStudent.studentSection;
+    const oldGender = oldStudent.studentGender;
+
+    const newClass = student.studentClass;
+    const newSection = student.studentSection;
+    const newGender = student.studentGender;
+
+    const genderField = (g) =>
+      g === "Male" ? "totalBoys" :
+      g === "Female" ? "totalGirls" : "totalOthers";
+
+
+    // ------------ CLASS UPDATE LOGIC ------------ //
+
+    // 1️⃣ CLASS OR SECTION CHANGED → Remove + Add
+    if (oldClass !== newClass || oldSection !== newSection) {
+
+      // Remove from Old Class
+      const oldClassDoc = await Class.findOne({
+        className: oldClass,
+        sections: oldSection,
+        schoolId: req.schoolId,
+      });
+
+      if (oldClassDoc) {
+        await Class.findByIdAndUpdate(
+          oldClassDoc._id,
+          { $pull: { [genderField(oldGender)]: student._id } }
+        );
+      }
+
+      // Add to New Class
+      const newClassDoc = await Class.findOne({
+        className: newClass,
+        sections: newSection,
+        schoolId: req.schoolId,
+      });
+
+      if (newClassDoc) {
+        await Class.findByIdAndUpdate(
+          newClassDoc._id,
+          { $addToSet: { [genderField(newGender)]: student._id } }
+        );
+      }
+    }
+
+    // 2️⃣ SAME class/section কিন্তু student থাকে না → শুধু add
+    else {
+      const classDoc = await Class.findOne({
+        className: newClass,
+        sections: newSection,
+        schoolId: req.schoolId,
+      });
+
+      if (classDoc) {
+        const field = genderField(newGender);
+
+        // student এই array-এ নেই?
+        if (!classDoc[field].includes(student._id)) {
+          await Class.findByIdAndUpdate(
+            classDoc._id,
+            { $addToSet: { [field]: student._id } }
+          );
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Student updated successfully",
+      student,
+    });
+
   } catch (error) {
-    console.error("Error updating student:", error);
-    res.status(500).json({ success: false, message: "Error updating student", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error updating student",
+      error: error.message,
+    });
   }
 };
 
-// Delete a Student by ID
+
+
+// Delete Student
 exports.deleteStudent = async (req, res) => {
   try {
-    const { id } = req.params;
-    const deletedStudent = await Student.findByIdAndDelete(id);
+    const deletedStudent = await Student.findOneAndDelete({
+      _id: req.params.id,
+      schoolId: req.schoolId,
+    });
 
     if (!deletedStudent) {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    res.status(200).json({ success: true, message: "Student deleted successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Student deleted successfully",
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error deleting student", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error deleting student",
+      error: error.message,
+    });
   }
 };
+

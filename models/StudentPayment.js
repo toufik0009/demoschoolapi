@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema({
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School" },
   student: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
   month: { type: String, required: true },
   amountPaid: { type: Number, required: true },

@@ -3,11 +3,16 @@ const Grade = require("../models/Grade");
 // Create Grade
 exports.createGrade = async (req, res) => {
   try {
-    const { schoolId, grade, from, upto, status } = req.body;
-
-    if (!schoolId || !grade || from == null || upto == null || !status) {
+    const { grade, from, upto, status } = req.body;
+    const schoolId = req?.admin?.schoolIds[0];
+    console.log("School Id",schoolId)
+    if (!grade || from == null || upto == null || !status) {
       return res.status(400).json({ message: "All fields are required" });
+    } 
+     if (!schoolId ) {
+      return res.status(400).json({ message: "Should Need School Id" });
     }
+
 
     const newGrade = await Grade.create({
       schoolId,

@@ -26,7 +26,7 @@ const studentSchema = new mongoose.Schema({
   studentParentName: { type: String, required: true },
   studentRelationship: { type: String, required: true },
   studentParentPhone: { type: String, required: true },
-  studentParentEmail: { type: String, required: true },
+  studentParentEmail: { type: String, required: false },
   studentParentOccupation: { type: String, required: true },
   studentParentAddress: { type: String, required: true },
 

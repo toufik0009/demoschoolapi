@@ -1,14 +1,15 @@
 const Class = require("../models/Classes");
-const jwt = require("jsonwebtoken");
 
-// Create a new Class
+// ============================
+// CREATE CLASS
+// ============================
 exports.createClass = async (req, res) => {
   try {
+    const schoolId = req.schoolId;   // ✅ FIX
     const { className, sections, subjects, teachers } = req.body;
 
-    // ✅ Find by className + sections
     let existingClass = await Class.findOne({
-      schoolId: req.user.schoolId,
+      schoolId,
       className,
       sections,
     });
@@ -16,7 +17,7 @@ exports.createClass = async (req, res) => {
     if (existingClass) {
       let updated = false;
 
-      // Add new subjects if not already present
+      // Add new subjects if not existing
       for (let subj of subjects) {
         const subjectExists = existingClass.subjects.some(
           (s) => s.subjectName === subj.subjectName
@@ -28,7 +29,7 @@ exports.createClass = async (req, res) => {
         }
       }
 
-      // Add new teachers if not already present
+      // Add teachers if new
       if (teachers && teachers.length > 0) {
         teachers.forEach((t) => {
           if (!existingClass.teachers.includes(t)) {
@@ -53,25 +54,26 @@ exports.createClass = async (req, res) => {
         message: "Class updated successfully",
         class: existingClass,
       });
-    } else {
-      // ✅ Create new class if className + sections combo doesn’t exist
-      const newClass = new Class({
-        className,
-        sections,
-        subjects,
-        teachers,
-        createdBy: req.user.userId || req.user.id,
-        schoolId: req.user.schoolId,
-      });
-
-      await newClass.save();
-
-      return res.status(201).json({
-        success: true,
-        message: "Class created successfully",
-        class: newClass,
-      });
     }
+
+    // New Class
+    const newClass = new Class({
+      className,
+      sections,
+      subjects,
+      teachers,
+      createdBy: req.user.userId || req.user.id,
+      schoolId,
+    });
+
+    await newClass.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Class created successfully",
+      class: newClass,
+    });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -81,61 +83,114 @@ exports.createClass = async (req, res) => {
   }
 };
 
-// Get all Classes
+// ============================
+// GET ALL CLASSES
+// ============================
 exports.getAllClasses = async (req, res) => {
   try {
-    const classes = await Class.find();
+    const schoolId = req.schoolId;   // ✅ FIX
+
+    const classes = await Class.find({ schoolId });
+
     res.status(200).json({ success: true, classes });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching classes", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching classes",
+      error: error.message,
+    });
   }
 };
 
-// Get a single Class by ID
+// ============================
+// GET CLASS BY ID
+// ============================
 exports.getClassById = async (req, res) => {
   try {
+    const schoolId = req.schoolId;   // ✅ FIX
     const { id } = req.params;
-    console.log("Fetching class with ID:", id);
-    const classData = await Class.findById(id);
+
+    const classData = await Class.findOne({ _id: id, schoolId });
 
     if (!classData) {
-      return res.status(404).json({ success: false, message: "Class not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Class not found",
+      });
     }
 
     res.status(200).json({ success: true, class: classData });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching class", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching class",
+      error: error.message,
+    });
   }
 };
 
-// Update a Class by ID
+// ============================
+// UPDATE CLASS
+// ============================
 exports.updateClass = async (req, res) => {
   try {
+    const schoolId = req.schoolId;   // ✅ FIX
     const { id } = req.params;
-    const updatedClass = await Class.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
+
+    const updatedClass = await Class.findOneAndUpdate(
+      { _id: id, schoolId },
+      req.body,
+      { new: true, runValidators: true }
+    );
 
     if (!updatedClass) {
-      return res.status(404).json({ success: false, message: "Class not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Class not found",
+      });
     }
 
-    res.status(200).json({ success: true, message: "Class updated successfully", class: updatedClass });
+    res.status(200).json({
+      success: true,
+      message: "Class updated successfully",
+      class: updatedClass,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error updating class", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error updating class",
+      error: error.message,
+    });
   }
 };
 
-// Delete a Class by ID
+// ============================
+// DELETE CLASS
+// ============================
 exports.deleteClass = async (req, res) => {
   try {
+    const schoolId = req.schoolId;   // ✅ FIX
     const { id } = req.params;
-    const deletedClass = await Class.findByIdAndDelete(id);
+
+    const deletedClass = await Class.findOneAndDelete({ _id: id, schoolId });
 
     if (!deletedClass) {
-      return res.status(404).json({ success: false, message: "Class not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Class not found",
+      });
     }
 
-    res.status(200).json({ success: true, message: "Class deleted successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Class deleted successfully",
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error deleting class", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error deleting class",
+      error: error.message,
+    });
   }
 };

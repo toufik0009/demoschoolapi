@@ -17,6 +17,7 @@ const studentAttendanceRoutes = require("./routes/studentAttendanceRoutes");
 const teacherAttendanceRoutes = require("./routes/teacherAttendanceRoutes");
 const leaveRouter = require('./routes/leaveRoutes')
 const marksGradingRoutes = require('./routes/marksGradingRoutes')
+const chalanRoutes = require('./routes/chalanRoutes')
 
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use("/api/student-attendance", studentAttendanceRoutes);
 app.use("/api/teacher-attendance", teacherAttendanceRoutes);
 app.use("/api/leave", leaveRouter);
 app.use("/api/marks-grading", marksGradingRoutes);
+app.use("/api/chalan", chalanRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

@@ -3,7 +3,7 @@ const router = express.Router();
 const teacherController = require("../controllers/teacherController");
 const teacherMiddleware = require("../middleware/teacherMiddleware");
 const upload = require('../middleware/upload');
-
+const extractSchoolId = require("../middleware/extractSchoolId");
 // ---------------- Teacher Routes ----------------
 
 // Insert a new teacher
@@ -13,7 +13,7 @@ router.post("/insertTeacher", teacherMiddleware.verifyToken, upload.single("teac
 router.post("/login", teacherController.loginTeacher);
 
 // Get all teachers
-router.get("/getAllTeachers", teacherMiddleware.verifyToken, teacherController.getAllTeachers);
+router.get("/getAllTeachers", teacherMiddleware.verifyToken,extractSchoolId, teacherController.getAllTeachers);
 
 // Get a single teacher by ID
 router.get("/getTeacher/:id", teacherMiddleware.verifyToken, teacherController.getTeacherById);
